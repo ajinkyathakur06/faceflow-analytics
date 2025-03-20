@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Camera, User, X, CheckCheck } from 'lucide-react';
+import { Camera, User, X, CheckCheck, AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import FaceScannerAnimation from './FaceScannerAnimation';
 
 const FaceScanner = () => {
@@ -9,6 +10,7 @@ const FaceScanner = () => {
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [isRecognized, setIsRecognized] = useState(false);
   const [userName, setUserName] = useState('');
+  const [permissionError, setPermissionError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -23,6 +25,19 @@ const FaceScanner = () => {
 
   const startCamera = async () => {
     try {
+      // Reset any previous error states
+      setPermissionError(null);
+      
+      // Check if permissions were previously denied
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      
+      if (cameras.length === 0) {
+        setPermissionError('No camera detected on this device.');
+        toast.error('No camera detected on this device.');
+        return;
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false,
@@ -34,8 +49,30 @@ const FaceScanner = () => {
       }
       
       setIsCameraActive(true);
+      toast.success('Camera started successfully');
     } catch (error) {
       console.error('Error accessing camera:', error);
+      
+      // Handle permission errors
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          const errorMsg = 'Camera access denied. Please enable camera permissions in your browser settings.';
+          setPermissionError(errorMsg);
+          toast.error(errorMsg);
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          const errorMsg = 'No camera found on this device.';
+          setPermissionError(errorMsg);
+          toast.error(errorMsg);
+        } else {
+          const errorMsg = `Camera error: ${error.message}`;
+          setPermissionError(errorMsg);
+          toast.error(errorMsg);
+        }
+      } else {
+        const errorMsg = 'An unexpected error occurred while accessing the camera.';
+        setPermissionError(errorMsg);
+        toast.error(errorMsg);
+      }
     }
   };
 
@@ -53,6 +90,7 @@ const FaceScanner = () => {
     setIsRecognizing(false);
     setIsRecognized(false);
     setUserName('');
+    setPermissionError(null);
   };
 
   const startRecognition = () => {
@@ -117,16 +155,33 @@ const FaceScanner = () => {
           </>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <Camera className="w-8 h-8 text-blue-600" />
-            </div>
-            <h3 className="text-xl font-bold mb-2 text-center">Face Recognition</h3>
-            <p className="text-gray-500 text-center mb-6">
-              Position your face in the camera frame to mark your attendance.
-            </p>
-            <Button onClick={startCamera} className="w-full">
-              Start Camera
-            </Button>
+            {permissionError ? (
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2 text-center">Camera Access Error</h3>
+                <p className="text-gray-500 text-center mb-6">
+                  {permissionError}
+                </p>
+                <Button onClick={startCamera} className="w-full">
+                  Try Again
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <Camera className="w-8 h-8 text-blue-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2 text-center">Face Recognition</h3>
+                <p className="text-gray-500 text-center mb-6">
+                  Position your face in the camera frame to mark your attendance.
+                </p>
+                <Button onClick={startCamera} className="w-full">
+                  Start Camera
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
