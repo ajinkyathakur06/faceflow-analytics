@@ -11,10 +11,14 @@ const FaceScanner = () => {
   const [isRecognized, setIsRecognized] = useState(false);
   const [userName, setUserName] = useState('');
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [cameraAttempts, setCameraAttempts] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Check for camera on component mount
   useEffect(() => {
+    checkCameraAvailability();
+    
     // Cleanup function to stop camera when component unmounts
     return () => {
       if (streamRef.current) {
@@ -23,55 +27,75 @@ const FaceScanner = () => {
     };
   }, []);
 
-  const startCamera = async () => {
+  // Re-attempt camera access when cameraAttempts changes
+  useEffect(() => {
+    if (cameraAttempts > 0) {
+      startCamera();
+    }
+  }, [cameraAttempts]);
+
+  // Function to check if camera is available
+  const checkCameraAvailability = async () => {
     try {
-      // Reset any previous error states
-      setPermissionError(null);
-      
-      // Check if permissions were previously denied
       const devices = await navigator.mediaDevices.enumerateDevices();
       const cameras = devices.filter(device => device.kind === 'videoinput');
       
       if (cameras.length === 0) {
         setPermissionError('No camera detected on this device.');
-        toast.error('No camera detected on this device.');
-        return;
       }
+    } catch (error) {
+      console.error('Error checking camera availability:', error);
+      setPermissionError('Failed to check camera availability.');
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      // Reset any previous error states
+      setPermissionError(null);
       
+      // Request camera permissions
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
         audio: false,
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
+        setIsCameraActive(true);
+        toast.success('Camera started successfully');
+      } else {
+        throw new Error("Video element not available");
       }
-      
-      setIsCameraActive(true);
-      toast.success('Camera started successfully');
     } catch (error) {
       console.error('Error accessing camera:', error);
       
       // Handle permission errors
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          const errorMsg = 'Camera access denied. Please enable camera permissions in your browser settings.';
-          setPermissionError(errorMsg);
-          toast.error(errorMsg);
+          setPermissionError('Camera access denied. Please enable camera permissions in your browser settings and refresh the page.');
+          toast.error('Camera permission denied. Please check your browser settings.');
         } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-          const errorMsg = 'No camera found on this device.';
-          setPermissionError(errorMsg);
-          toast.error(errorMsg);
+          setPermissionError('No camera found on this device.');
+          toast.error('No camera found on this device.');
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+          setPermissionError('Camera may be in use by another application.');
+          toast.error('Camera may be in use by another application.');
+        } else if (error.name === 'OverconstrainedError') {
+          setPermissionError('Camera constraints cannot be satisfied.');
+          toast.error('Camera constraints cannot be satisfied.');
         } else {
-          const errorMsg = `Camera error: ${error.message}`;
-          setPermissionError(errorMsg);
-          toast.error(errorMsg);
+          setPermissionError(`Camera error: ${error.message}`);
+          toast.error(`Camera error: ${error.message}`);
         }
       } else {
-        const errorMsg = 'An unexpected error occurred while accessing the camera.';
-        setPermissionError(errorMsg);
-        toast.error(errorMsg);
+        setPermissionError('An unexpected error occurred while accessing the camera.');
+        toast.error('An unexpected error occurred while accessing the camera.');
       }
     }
   };
@@ -91,6 +115,10 @@ const FaceScanner = () => {
     setIsRecognized(false);
     setUserName('');
     setPermissionError(null);
+  };
+
+  const retryCamera = () => {
+    setCameraAttempts(prev => prev + 1);
   };
 
   const startRecognition = () => {
@@ -115,6 +143,11 @@ const FaceScanner = () => {
               playsInline
               muted
               className="w-full h-full object-cover"
+              onError={() => {
+                console.error("Video element error");
+                setPermissionError("Error with video playback");
+                setIsCameraActive(false);
+              }}
             />
             
             {isRecognizing && <FaceScannerAnimation />}
@@ -164,9 +197,12 @@ const FaceScanner = () => {
                 <p className="text-gray-500 text-center mb-6">
                   {permissionError}
                 </p>
-                <Button onClick={startCamera} className="w-full">
+                <Button onClick={retryCamera} className="w-full mb-3">
                   Try Again
                 </Button>
+                <p className="text-xs text-gray-400 text-center">
+                  If the error persists, try refreshing the page or checking your browser settings.
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center text-center">
