@@ -2,6 +2,7 @@
 import React from 'react';
 import Navbar from '@/components/Navbar';
 import FaceScanner from '@/components/FaceRecognition/FaceScanner';
+import FaceTrainer from '@/components/FaceRecognition/FaceTrainer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -20,8 +21,9 @@ const Recognition = () => {
           </div>
           
           <Tabs defaultValue="scanner" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="scanner">Recognition Scanner</TabsTrigger>
+              <TabsTrigger value="trainer">Train Faces</TabsTrigger>
               <TabsTrigger value="history">Recognition History</TabsTrigger>
             </TabsList>
             
@@ -97,6 +99,20 @@ const Recognition = () => {
                   </Card>
                 </div>
               </div>
+            </TabsContent>
+            
+            <TabsContent value="trainer" className="focus-visible:outline-none focus-visible:ring-0">
+              <Card className="border-none shadow-md">
+                <CardHeader>
+                  <CardTitle>Train Face Recognition</CardTitle>
+                  <CardDescription>
+                    Capture photos to train the system to recognize specific individuals
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FaceTrainer />
+                </CardContent>
+              </Card>
             </TabsContent>
             
             <TabsContent value="history" className="focus-visible:outline-none focus-visible:ring-0">
