@@ -18,7 +18,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         // For demo purposes, we'll show the current URL
         const currentUrl = window.location.href;
         const urlObj = new URL(currentUrl);
-        setNetworkInfo(`${urlObj.protocol}//${urlObj.hostname}:${urlObj.port}`);
+        setNetworkInfo(`${urlObj.protocol}//${urlObj.hostname}:3000`);
       } catch (error) {
         console.error('Error getting network info:', error);
       }
